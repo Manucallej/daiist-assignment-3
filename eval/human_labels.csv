@@ -1,25 +1,25 @@
 id,correct,supported,notes
-q01,,,
-q02,,,
-q03,,,
-q04,,,
-q05,,,
-q06,,,
-q07,,,
-q08,,,
-q09,,,
-q10,,,
-q11,,,
-q12,,,
-q13,,,
-q14,,,
-q15,,,
-q16,,,
-q17,,,
-q18,,,
-q19,,,
-q20,,,
-q21,,,
+q01, 1, 1, 0
+q02, 1, 1, 0
+q03, 1, 1, 0
+q04, 1, 1, 0
+q05, 1, 1, 0
+q06, 1, 1, 0
+q07, 1, 1, 0
+q08, 1, 1, 0
+q09, 1, 1, 0
+q10, 1, 1, 0
+q11, 1, 1, 0
+q12, 1, 1, 0
+q13, 1, 1, 0
+q14, 1, 1, 0
+q15, 1, 1, 0
+q16, 1, 1, 0
+q17, 1, 1, 0
+q18, 1, 1, 0
+q19, 1, 1, 0
+q20, 1, 1, 0
+q21, 1, 1, 0
 q22,,,
 q23,,,
 q24,,,
@@ -30,7 +30,7 @@ q28,,,
 q29,,,
 q30,,,
 q31,,,
-q32,,,
-q33,,,
-q34,,,
-q35,,,
+q32, 1, 1, 0
+q33, 1, 1, 0
+q34, 0, 1, I'd say it's not completely in agreement, because the reference answer says the documents don't cover it, whilst the answer says the "EU AI Act prohibits the use of AI systems to infer the emotions of a natural person" and then says that it doesn't define a workplace, but it's implying an answer. 
+q35, 1, 1, 0
