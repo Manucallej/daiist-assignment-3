@@ -22,7 +22,19 @@
     "unsupported claim (answered an unanswerable question)": 1
   },
   "human_agreement": {
-    "graded": 0
+    "graded": 26,
+    "correct": {
+      "n": 26,
+      "agreement": 1.0,
+      "kappa": 1.0,
+      "disagreements": []
+    },
+    "supported": {
+      "n": 26,
+      "agreement": 1.0,
+      "kappa": 1.0,
+      "disagreements": []
+    }
   },
   "add_document_demo": {
     "question": "Does the ban on emotion recognition at work also cover job candidates during hiring?",
