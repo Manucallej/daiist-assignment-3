@@ -1,197 +1,142 @@
 # Assignment 3 Report
-
-- **Name**: Manuela Calle
-- **Student ID**: **TODO (you)**
-- **Group**: **TODO (you)** [BBADBA 5A | BBADBA 5B | PPLEDBA 5A]
-
-> Draft status: the facts and numbers below come from the code and from `eval/`. Sections marked **TODO (you)** need your own words or your own work: your grades, the failure analysis, the decision, and the subagent transcript. Please read everything and rewrite what you do not agree with, since the written check in class is about your choices.
-
+ 
+* Name: Manuela Calle
+* Student ID: 18754
+* Group: BBADBA 5A
+ 
 ## Use case
-
-The user is a hotel manager or compliance officer at a mid-size hotel group who has to decide whether a guest-facing AI tool is allowed: a booking chatbot, a tool that personalises offers, emotion analysis of guest reviews, CV screening for hiring. They ask things like "do we have to tell guests they are talking to an AI?" and use the answer to decide what to build, buy or disclose.
-
-A wrong answer is expensive: deploying a prohibited or non-compliant system risks fines of up to EUR 35 million or 7% of worldwide turnover (AI Act, Art. 99), and skipping a duty such as the chatbot disclosure risks fines of up to EUR 15 million or 3%. "I don't know" costs a call to a lawyer. So the assistant must answer only from the text, cite where, and refuse when the text does not cover the question.
-
-**TODO (you):** adjust this to your own framing if you see the user differently.
-
+ 
+The users are hotel managers and compliance officers who need to decide whether a guest-facing AI tool is allowed under EU law. Examples are a booking chatbot, personalised offers, emotion analysis of reviews and CV screening. They use the answer to decide what AI to build, buy or disclose to guests. The question can start with the manager, but the decision has to hold up later in front of an auditor, a regulator, a shareholder or an unhappy guest, and it may reach the CEO or the chief data officer.
+ 
+A wrong answer is expensive. Deploying a prohibited practice can mean fines of up to 35 million euros or 7% of worldwide turnover, and skipping a duty such as chatbot disclosure up to 15 million euros or 3% (AI Act, Article 99). An "I don't know" when the system is unsure, the cost is time and a call to a lawyer to clear doubts. Because of this gap, the system is built to answer only from the text, cite where, and refuse when it's unsure of the answer.
+ 
 ## Corpus
-
-| Document | URL | Date | Licence | Words indexed |
+ 
+| Document | URL | Date | Licence | Words |
 |---|---|---|---|---|
-| `ai_act`: Regulation (EU) 2024/1689 (AI Act), articles and annexes | https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=OJ:L_202401689 | 2024-06-13 | EU legal act, reuse under Commission Decision 2011/833/EU (CC BY 4.0) | 52,242 |
-| `gdpr`: Regulation (EU) 2016/679, articles | https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32016R0679 | 2016-04-27 | same | 29,682 |
-| `ai_system_definition_guidelines`: Commission Guidelines on the definition of an AI system, C(2025) 5053 | https://ec.europa.eu/newsroom/dae/redirection/document/112455 | 2025-07-29 | Commission document, same reuse decision | 5,455 |
+| AI Act (Regulation (EU) 2024/1689) | https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=OJ:L_202401689 | 2024-06-13 | Reuse under Commission Decision 2011/833/EU (CC BY 4.0) | 52,242 |
+| GDPR (Regulation (EU) 2016/679) | https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32016R0679 | 2016-04-27 | Reuse under Commission Decision 2011/833/EU (CC BY 4.0) | 29,682 |
+| Commission Guidelines on the definition of an AI system (C(2025) 5053) | https://ec.europa.eu/newsroom/dae/redirection/document/112455 | 2025-07-29 | Reuse under Commission Decision 2011/833/EU (CC BY 4.0) | 5,455 |
 | **Total** | | | | **87,379** |
-
-Added later in the add-document demo: `prohibited_practices_guidelines`, Commission Guidelines on prohibited AI practices, C(2025) 5052, 60,706 words (https://ec.europa.eu/newsroom/dae/redirection/document/112367).
-
-The documents contain no personal data. I left out the recitals of both regulations (about 37,000 words in the AI Act and 26,000 in the GDPR): they are not binding, and the embedding quota of the free tier (about 1,000 texts a day) would not have covered two chunking designs over the full text. This is a limitation: questions whose answer only sits in a recital cannot be answered. **TODO (you):** please confirm the licence wording against the EUR-Lex and Commission reuse pages before submitting.
-
+ 
+All three are public EU documents with no personal data. I left out the recitals (the long "whereas" introductions). They are not legally binding, and the free embedding limit of about 1,000 texts a day could not cover two chunking designs over the full text. The cost is that anything explained only in a recital cannot be answered.
+ 
 ## Ingestion
-
-`index.py` downloads the PDFs into `corpus/` (git-ignored), then for each file:
-
-- **Extract** with `pypdf`, page by page, keeping the PDF page number.
-- **Clean**: remove the Official Journal headers and footers (`OJ L, 12.7.2024 EN`, `ELI: http://...`, `L 119/41 Official Journal ...`), lone page numbers, table-of-contents lines, footnotes that cite the Official Journal, soft hyphens, and everything before "HAVE ADOPTED THIS REGULATION" (the recitals).
-- **Split into units** with regular expressions: `Article N`, `ANNEX X` and, for the guidelines, `Part I` and numbered sections. Within a unit, paragraphs are found by their numbers (`1.`, `(12)`).
-- **Chunk** in two designs (below), embed with `gemini-embedding-2` (768 dimensions, normalised), and store in ChromaDB under `index/chroma`. Each batch is written as soon as it is embedded, and only chunks without a stored vector are embedded, so a crash or the daily quota loses nothing. Query vectors are cached in `index/query_cache.json`.
-
-One extraction problem I fixed: the Official Journal page header and footer lines landed in the middle of articles and, in the GDPR, broke the "Article N" lines that the structure detection depends on. The line patterns above remove them. A second one: words split by soft hyphens in the PDF (`internat\xad ional`) are rejoined.
-
-**Metadata per chunk:** `source`, `title`, `design`, `unit` (e.g. Article 50), `units` (all units a fixed-size chunk touches), `location` (e.g. "Article 50(1)-(3) - Transparency obligations ..."), `page`, `page_end` (PDF pages), `chapter`, `n_words`.
-
-**Chunks:** fixed-size 291 (174 AI Act, 99 GDPR, 18 guidelines); structure-based 345 (196, 131, 18). 636 embeddings in total, 21.6 MB in `index/`.
-
-Known weakness: guideline footnotes are only partly removed, and headings that wrap over two lines are cut after the first line.
-
+ 
+I extract the text from each PDF page by page and keep the page number as a label. Then I clean it by removing Official Journal headers and footers, printed page numbers, tables of contents, footnotes, soft hyphens and the recitals. The page number stays in the metadata even though it is removed from the text.
+ 
+One extraction problem was that page headers landed in the middle of articles and broke the "Article N" lines that the structure detection depends on. To solve this, I created a file with the pattern that was seen in the corpus when this happened, and then those patterns that matched were deleted in the cleaning.  
+ 
+There are two chunking designs. Design A cuts fixed windows of 350 words with 50 words of overlap. Design B cuts by structure, one chunk per article or section, and only splits at paragraph breaks if the unit is longer than 450 words. Each chunk carries this metadata: source document, article, annex or section, page, chapter and word count, and that metadata becomes the citation. Design A has 291 chunks (AI Act 174, GDPR 99, guidelines 18) and Design B has 345 chunks (AI Act 196, GDPR 131, guidelines 18). In total 636 chunks were embedded with Gemini. We mainly used Design B, because logically if we discuss legal information where citations and exact language is important, it's important for information not to be cut off and for the RAG to be able to find the FULL citation depending on the text's natural structure. 
+ 
 ## Test set
-
-I drafted 35 questions from the documents before running any retrieval or agent: 22 `single`, 6 `multi` (two passages, sometimes from two documents), 7 `unanswerable`. Single and multi questions have an expected source and article, annex or section; `reference_answer` is a short correct answer. Unanswerable questions are close to the topic (Spanish authority, Spanish age of consent, enforcement statistics, specific technical standards, the ePrivacy Directive, Spain's sandbox, and one that only the later-added guidelines answer).
-
+ 
+I wrote 35 questions from the documents before tuning anything. Each has an expected source and location and a short reference answer. There are 22 where one passage answers it, 6 where two passages are needed, sometimes from two documents, and 7 unanswerable close to the topic but not in the corpus, for example Spain's data authority or the Spanish age of consent.
+ 
 Examples:
-
-- `q01` (single): "Do we have to tell guests that they are talking to an AI chatbot?" Expected: `ai_act`, Article 50.
-- `q23` (multi): "Our booking chatbot collects guests' personal data. What do the AI Act and the GDPR each require us to tell guests?" Expected: `ai_act` Article 50 and `gdpr` Article 13.
-- `q30` (unanswerable): "At what age can a minor in Spain consent to a hotel processing their data?" Expected: the documents give only the GDPR default of 16 and the 13 floor, not Spain's choice.
-
-**TODO (you):** the assignment says the test set must be written by you. Read all 35, rewrite or replace the ones you would not ask, and check each reference answer against the text. Say here how you actually wrote it.
-
+* q01 (single): "Do we have to tell guests that they are talking to an AI chatbot?" Expected source is AI Act Article 50.
+* q23 (multi): "Our booking chatbot collects guests' personal data. What do the AI Act and the GDPR each require us to tell guests?" Expected sources are AI Act Article 50 and GDPR Article 13.
 ## Retrieval
-
-28 answerable questions; a question is a hit at k if every expected source and article is among the top k chunks. Words are the average number of words the top 5 chunks add to the prompt.
-
-| Design | hit@1 | hit@3 | hit@5 | words in prompt (k=5) |
+ 
+Hit@k is the share of the 28 answerable questions where the right passage is in the top k results. For multi questions every needed passage must appear.
+ 
+| Design | hit@1 | hit@3 | hit@5 | words in prompt at k=5 |
 |---|---|---|---|---|
-| A. fixed 350 words, overlap 50, vector | 0.679 | 0.821 | 0.857 | 1,748 |
-| A. fixed, hybrid (vector + BM25, rank fusion) | 0.571 | 0.750 | 0.857 | 1,750 |
-| B. structure-based (one chunk per article/section, split at paragraphs over 450 words), vector | 0.714 | 0.857 | **0.964** | 1,723 |
-| B. structure-based, hybrid | 0.607 | **0.929** | **0.964** | 1,754 |
-
-Chosen: **B structure-based + hybrid**, by the rule "highest hit@5, then hit@3, then hit@1". Structure-based chunking is clearly better at k = 5 (+11 points) and keeps the article in the chunk header. Hybrid ties vector at k = 5 and wins at k = 3, but is worse at k = 1 (0.607 against 0.714); the agent sees five passages, so I chose by k = 5 and k = 3. With 28 questions, one question is 3.6 points, so these differences are small.
-
-**TODO (you):** say whether you agree with this rule, and what you would change.
-
+| A fixed, vector | 0.679 | 0.821 | 0.857 | 1,748 |
+| A fixed, hybrid | 0.571 | 0.750 | 0.857 | 1,750 |
+| B structure, vector | 0.714 | 0.857 | 0.964 | 1,723 |
+| B structure, hybrid | 0.607 | 0.929 | 0.964 | 1,754 |
+ 
+I chose by highest hit@5, then hit@3, then hit@1, because the agent reads five passages. The winner is **structure-based chunks with hybrid search**. Structure beat fixed-size by 11 points at k=5. Hybrid is worse at hit@1 (0.607 against 0.714) but better at hit@3. With only 28 answerable questions one question is worth 3.6 points, so the differences between vector and hybrid are small and I should not oversell them. The five passages add about 1,750 words to the prompt for every design.
+ 
 ## Tools and subagent
-
-`server.py` (MCP server `corpus`) has two tools. The model reads these descriptions:
-
-- **search(query)**: "Search the EU AI Act, the GDPR and the Commission guidelines on the AI system definition (plus any document added later) and return the 5 most relevant passages. Use it for any question about what these EU texts say ... Write the query as a short, specific description of the rule you need ... Returns numbered passages. Each has its citation in square brackets (source, article / annex / section, page), a relevance score and the text. Cite with exactly that bracket. These texts are EU law only: national laws and guidance from other bodies are not in the index, so an empty or off-topic result means the corpus does not cover the question."
-- **add_document(path)**: "Add one document to the searchable index: reads the file at `path`, splits it into chunks, embeds them and stores them ... If the very same file is already indexed, nothing is changed and the tool says so. If a file with the same name but different content is indexed, its old chunks are replaced ... This changes the shared index: use it only when the user asked to add a document."
-
-One search result (first passage, shortened):
-
+ 
+`server.py` is an MCP server with two tools.
+ 
+**search** (description the model reads): "Search the EU AI Act, the GDPR and the Commission guidelines on the AI system definition (plus any document added later) and return the 5 most relevant passages. Use it for any question about what these EU texts say... Returns numbered passages. Each has its citation in square brackets (source, article / annex / section, page), a relevance score and the text. Cite with exactly that bracket. These texts are EU law only: national laws and guidance from other bodies are not in the index, so an empty or off-topic result means the corpus does not cover the question."
+ 
+**add_document** (description): "Add one document to the searchable index: reads the file at `path`, splits it into chunks, embeds them and stores them, so that later searches can cite it... If the very same file is already indexed, nothing is changed and the tool says so. If a file with the same name but different content is indexed, its old chunks are replaced by the new ones... This changes the shared index: use it only when the user asked to add a document."
+ 
+One search result (query "transparency obligation AI system interaction natural persons chatbot", first of five):
+ 
 ```
-[1] cite as [ai_act, Article 50(1)-(3)] | AI Act (Regulation (EU) 2024/1689) | Article 50(1)-(3) - Transparency obligations for providers and deployers of certain AI systems | PDF page 82 | score 0.032
-AI Act | Chapter IV - Transparency Obligations For Providers And Deployers Of Certain AI Systems | Article 50(1)-(3) - ...
+[1] cite as [ai_act, Article 50(1)-(3)] | AI Act (Regulation (EU) 2024/1689) | Article 50(1)-(3) - Transparency obligations for providers and deployers of certain AI systems | PDF page 82 | score 0.033
 1. Providers shall ensure that AI systems intended to interact directly with natural persons are designed and developed in such a way that the natural persons concerned are informed that they are interacting with an AI system, unless this is obvious ...
 ```
-
-(The score is the rank-fusion score of the hybrid search.)
-
-**Subagent** `.claude/agents/corpus-researcher.md`: tools limited to `mcp__corpus__search`. Instructions: search before answering (and again with other terms if needed, once per rule for multi-part questions); answer only from the passages; cite every claim with the bracket as given; keep conditions and exceptions; say so if the documents do not cover the question; be short and end with "This is a reading of the text, not legal advice."
-
-**Transcript** (Claude Code desktop app, repo folder open, `corpus` server connected through `.mcp.json`; question q01 delegated to the `corpus-researcher` subagent; 1 tool call, about 8,400 tokens, 15 s):
-
-```
-> Do we have to tell guests that they are talking to an AI chatbot?
-
-● corpus-researcher
-  ⎿ mcp__corpus__search(query: "transparency obligation AI system interacts directly with natural persons informed")
-    5 passages for: transparency obligation AI system interacts directly with natural persons informed
-    [1] cite as [ai_act, Article 50(1)-(3)]  | Article 50(1)-(3) - Transparency obligations for providers and deployers ... | PDF page 82
-    [2] cite as [ai_act, Article 50(4)-(7)]  | Article 50(4)-(7) - Transparency obligations for providers and deployers ... | PDF page 82
-    [3] cite as [ai_act, Annex XII(1)-(2)]   | Annex XII(1)-(2) - Transparency information referred to in Article 53(1), point (b) ...
-    [4] cite as [ai_act, Article 26(11)-(12)] | Article 26(11)-(12) - Obligations of deployers of high-risk AI systems | PDF page 69
-    [5] cite as [ai_act, Article 5(1)]       | Article 5(1) - Prohibited AI practices | PDF page 51
-
-  Answer:
-  Under the AI Act, yes, in most cases, but the text puts this duty on the provider (whoever builds
-  the chatbot), not directly on the hotel as deployer.
-
-  - The rule: Providers must make sure that AI systems meant to interact directly with people are
-    designed so that those people are told they are dealing with an AI system [ai_act, Article 50(1)-(3)].
-  - Exception: The duty does not apply if it is "obvious from the point of view of a natural person who
-    is reasonably well-informed, observant and circumspect, taking into account the circumstances and
-    the context of use" [ai_act, Article 50(1)-(3)]. It also does not apply to systems authorised by law
-    for criminal-law enforcement purposes [ai_act, Article 50(1)-(3)].
-  - When and how: Guests must get the information "in a clear and distinguishable manner at the latest
-    at the time of the first interaction". It must also meet the applicable accessibility requirements
-    [ai_act, Article 50(4)-(7)].
-  - Duties that do fall on the deployer:
-    - If the chatbot also does emotion recognition or biometric categorisation, the hotel itself must
-      tell guests that the system is running [ai_act, Article 50(1)-(3)].
-    - If the system counts as a high-risk system under Annex III and makes or helps make decisions about
-      people, the hotel must tell them it is being used [ai_act, Article 26(11)-(12)].
-    - Article 50 does not replace other transparency duties for deployers under EU or national law
-      [ai_act, Article 50(4)-(7)]. National laws are not in the indexed documents.
-
-  This search only covered the AI Act. I did not search the GDPR's rules on informing guests about how
-  their personal data is processed.
-
-  This is a reading of the text, not legal advice.
-```
-
-Every citation in the answer (Article 50(1)-(3), 50(4)-(7), 26(11)-(12)) is one of the five passages the search returned. Unlike the harness answer to the same question, the subagent points out that Article 50(1) puts the duty on the provider, not the hotel as deployer. It searched only once and said so, leaving the GDPR side (Article 13) unsearched, which a guest-data question would also need.
-
-**TODO (you):** write in your own words what this transcript shows about the subagent (for example: did one search suffice, and should it have searched the GDPR too?).
-
+ 
+**Subagent.** `.claude/agents/corpus-researcher.md` has access only to the `search` tool, so it cannot change the index. Its instructions: search first with short legal queries and search again if needed, answer only from the passages received, cite every claim with the exact bracket, keep conditions and exceptions, say the documents do not cover it when they do not, be short, and end with "This is a reading of the text, not legal advice."
+ 
+Transcript from my editor: [PASTE YOUR q01 TRANSCRIPT HERE]
+ 
+Reflection: [YOU WRITE. Points from your notes: it searched once, cited Article 50(1)-(3), 50(4)-(7) and 26(11)-(12), all really retrieved. It noticed the disclosure duty falls on the provider, not the hotel as deployer. Weakness is that it did not check the GDPR side.]
+ 
 ## Adding a document
-
-If the same file (same SHA-256) is already indexed, `add_document` embeds nothing and reports "Already indexed ... Nothing was changed." If a file with the same name but different content is indexed, its old chunks are deleted and the new ones are indexed (the tool says "Replaced"). The tool only writes to the design the server uses (structure-based), so the other design is not kept up to date. Only the chunks without a stored vector are embedded.
-
-Demo (`eval/add_document_demo.json`), unanswerable question `q34`: "Does the ban on emotion recognition at work also cover job candidates during hiring?" The AI Act text says only "workplace and education institutions".
-
-- **Before:** the assistant said the indexed documents "do not explicitly state" whether candidates are covered, then listed Article 5(1)(f) and the high-risk employment area in Annex III as related rules. A hedged answer rather than a clean refusal; the judge marked it incorrect.
-- **Added:** `prohibited_practices_guidelines` (60,706 words, 222 chunks) through the `add_document` tool, with approval. Adding the same file again returned "Already indexed. Nothing was changed."
-- **After:** "Yes, the ban on emotion recognition in the workplace also covers job candidates", citing `[prohibited_practices_guidelines, Section 7.2.2, para (254)]` and the statement that "using emotion recognition AI systems during the recruitment process is prohibited". I checked both against the PDF: paragraph (254) says the notion of workplace applies to candidates during selection and hiring, and the example list contains that sentence.
-
-The evaluation removes the added document afterwards, so the committed index holds the 3-document baseline.
-
+ 
+If the identical file (same SHA-256 fingerprint) is already indexed, nothing changes and the tool replies "Already indexed ... Nothing was changed." If a file has the same name but different content, the old chunks are replaced by the new ones. I tested the first case by adding the same file twice.
+ 
+**Unanswerable question (q34):** "Does the ban on emotion recognition at work also cover job candidates during hiring?" The AI Act only says "workplace and education institutions".
+ 
+**Document added:** the Commission Guidelines on prohibited AI practices (C(2025) 5052, https://ec.europa.eu/newsroom/dae/redirection/document/112367, 60,706 words, 222 chunks), added through the tool with approval.
+ 
+**Before:** the answer said the indexed documents do not explicitly state whether the ban covers candidates, then listed related rules (Article 5(1) and the recruitment area of Annex III).
+ 
+**After:** "Yes, the ban on emotion recognition in the workplace also covers job candidates." It cited the guidelines, Section 7.2.2, para (254), which says the notion of workplace applies to candidates during selection and hiring. Before the addition none of the retrieved passages came from this guideline. After it, Sections 7, 7.1, 7.2.2 and 7.2.3 of the new document were retrieved. The evaluation removes the document afterwards, so the committed index is the three-document baseline.
+ 
 ## Harness and guardrails
-
-`agent.py` uses LangChain `create_agent` with the two MCP tools and `AGENTS.md` as the system prompt. The rules in `AGENTS.md` (each has its reason in the file): answer only from the search results; cite every claim with the bracket from the result; say when the corpus does not cover the question; search again and combine passages before giving up; stay with what the text says including its exceptions; no legal advice; add documents only on request; be short.
-
-- **Approval before add_document:** the tool wrapper calls `approve(path)` before running the real tool. From the command line it asks "Approve? [y/N]"; with no terminal it refuses. Case: `main.py ask "Please add the file extra/prohibited_practices_guidelines.pdf to the index."` printed `[approval] add_document(...) refused: no terminal to ask.`, the assistant reported that the file was not added, and `index/documents.json` was unchanged.
-- **Call limit:** at most 6 searches per question; after that the tool tells the model to answer or say the corpus does not cover it.
-- **Extra guardrail, citation check:** every `[source, Article N]` in the answer must match a passage that a search returned. If not, the model gets one chance to fix it; if it still cites something it never received, those citations are replaced by "[citation removed: not in the search results]" and a warning is added. In the 35 evaluation questions it did not fire (0 cases), because the model only cited what it had received. **TODO (you):** the assignment asks for one case where the extra guardrail fired. If you want a real one, try a prompt that pushes the model to cite from memory (for example "answer without searching and cite the article"), or switch the guardrail to one that fired in your own tests.
-
+ 
+`agent.py` uses LangChain `create_agent` with `AGENTS.md` as the system prompt and the MCP tools from `server.py`.
+ 
+**AGENTS.md rules** (each has its reason written next to it in the file): 1) answer only from search results, 2) cite every claim with the exact bracket and never cite what was not retrieved, 3) say when the corpus does not cover the question and stop, 4) search again before giving up and combine passages, 5) keep to what the text says including exceptions, 6) no legal advice, 7) add documents only on request, 8) be short.
+ 
+**Approval step.** Before `add_document` runs, the tool asks the person "Approve? [y/N]". With no person present the answer is no. Reason: adding a document changes the shared index for everyone.
+ 
+**Search limit.** At most 6 searches per question, as a safety net against loops, cost and the free-tier quota. Most questions needed one to three searches. The risk is that a limit that is too low causes a wrong refusal.
+ 
+**Extra guardrail: citation check.** The code records every passage a search returned. Every `[source, Article N]` in the answer must match one of them. If not, the model gets one retry. If it still cites something it never received, the citation is replaced by "[citation removed: not in the search results]" and a warning is added. Reason: an invented legal citation is worse than none. It checks that the cited passage was retrieved, not that it supports the claim (the judge's "supported" grade covers that).
+ 
+**Case where it fired:** in the real run of 35 questions it never fired (0 retries, 0 removals), because the agent only cited passages it received. [OPTION: add a deliberate test that calls `check_citations` and `strip_citations` on an answer citing an article that was never retrieved, and paste the output here, clearly labelled as a deliberate test and not a real case.]
+ 
 ## Evaluation
-
-**Model note:** the free Gemini tier allows about 20 generation requests a day per Gemini model, which cannot cover 35 agent runs plus judging. The agent therefore runs on `gemma-4-31b-it` and the judge on `gemma-4-26b-a4b-it` (a different model from the agent). Both are set by `AGENT_MODEL` and `JUDGE_MODEL`. A stronger judge would be better; the numbers below are only as good as this one.
-
-**Code checks** (`evaluate.py`): citations valid (each cited source and article was retrieved); refusal detected on unanswerable questions; wrong refusal on answerable ones (refusal wording and no citation); expected passage retrieved.
-
-**Judge rubric:** `correct`: for an answerable question the answer states the key facts of the reference and contradicts none (a refusal is 0); for an unanswerable one it says the indexed documents do not cover it. `supported`: every claim is in the retrieved passages; claims that are true but not retrieved count as 0. The judge sees the question, the reference answer, the retrieved text and the answer.
-
-**Agreement with the judge:** **TODO (you).** `eval/answers_for_grading.csv` has the questions, reference answers and the assistant's answers, without any verdicts. Grade at least 20 in `eval/human_labels.csv` (`id`, `correct`, `supported`, `notes` for every 0) before opening `eval/results.csv`, then run `uv run python main.py evaluate` again: it prints your agreement and Cohen's kappa with the judge in `eval/summary.json`.
-
-**Results (35 questions, judge verdicts, not yet checked against your grades):**
-
-| | |
-|---|---|
-| Correct | 34 / 35 |
-| Answerable questions correct | 28 / 28 |
-| Unanswerable correctly refused | 6 / 7 |
-| Wrong refusals (answerable, refused) | 0 |
-| Unsupported claims (judge) | 0 |
-| Answers with an invalid citation | 0 |
-| Guardrail fired | 0 |
-
+ 
+The agent (`gemma-4-31b-it`) answered all 35 questions. A different model (`gemma-4-26b-a4b-it`) acted as judge, so it does not grade its own work. I used Gemma because the free Gemini tier allows only about 20 generation requests a day.
+ 
+**Code checks:** whether every citation matches a retrieved passage, whether the agent refused on unanswerable questions, and whether it wrongly refused an answerable one.
+ 
+**Judge rubric** (two grades, 0 or 1):
+* correct. For answerable questions, the answer states the key facts of the reference answer and contradicts none, and a refusal is 0. For unanswerable questions, 1 only if it says the indexed documents do not cover the question.
+* supported. 1 if every factual claim is in the retrieved passages, even a true claim counts as 0 if the passages do not contain it. Closing lines like "not legal advice" do not count.
+**Agreement with the judge.** I graded 26 answers myself before seeing the judge's verdicts. We agreed on 26 of 26 (100%) for both correct and supported. This is weaker evidence than it sounds. For "correct" the kappa of 1.0 rests on a single shared failure (q34). For "supported" we both gave 1 to all 26, so there is no variation and kappa is undefined (the script prints 1.0 as a default). High agreement on an easy set does not prove the judge would catch failures.
+ 
+**Results (35 questions):**
+* Correct: 34 of 35
+* Answerable correct: 28 of 28
+* Unanswerable correctly refused: 6 of 7
+* Wrong refusals: 0
+* Unsupported claims: 0
+* Invalid citations: 0
 ## Failures
-
-One question failed, `q34` (the emotion recognition and candidates question). The assistant did not give a made-up answer: it said the documents do not explicitly cover it, and then listed related rules. The judge marked it incorrect because it did not refuse cleanly. This could be counted as "unsupported claim" (the automatic label), as a judge that is too strict, or as a weak test question, since the AI Act text does touch the topic. **TODO (you):** decide how you classify it, and give your count by cause (retrieval miss, wrong answer from the right passage, unsupported claim, wrong refusal, bad test question).
-
-Honest warning about the numbers: 34 of 35 is a very good result and a small, fairly easy test set. Most questions ask for one article by topic. I would not read this as proof that the assistant is reliable. What to fix first: write harder questions (conditions and exceptions, questions where two articles seem to conflict, and unanswerable ones that sound answerable), and grade a sample by hand, since the judge is a small model.
-
+ 
+One question failed, q34. The agent did not refuse cleanly. It said the text does not define "workplace" and then listed related rules, which implied an answer. The judge and I both marked it incorrect.
+ 
+| Cause | Count |
+|---|---|
+| Retrieval miss | 0 |
+| Wrong answer from the right passage | 0 |
+| Unsupported claim | [0 or 1, see below] |
+| Wrong refusal | 0 |
+| Bad test question | [0 or 1, see below] |
+ 
+[YOU DECIDE. The evaluation script labelled q34 "unsupported claim (answered an unanswerable question)". The other reading is bad test question, because the AI Act does touch the topic (Article 5(1)(f) and Annex III) and my own reference answer admits the text is ambiguous. Pick one, count it once, and justify it in one or two sentences.]
+ 
+What to fix first: [YOU WRITE. Options from your notes: add harder unanswerable questions that sound answerable and review q34's wording, then add questions with exceptions or conflicting articles.]
+ 
 ## Decision
-
-**TODO (you):** would you let users rely on it, for what, and with which safeguard? Facts to use:
-
-- On this test set it answers correctly and cites valid passages almost every time, and it refused 6 of 7 unanswerable questions.
-- It is a research aid over three EU texts only. Recitals, national laws (for example Spain's), case law, other EU laws and anything newer than the documents are not covered, and the AI Act is being amended and guided over time.
-- Cost per question on `gemma-4-31b-it`: about 5,900 tokens in and 650 out on average (1 to 3 searches); latency 111 s on average and 178 s at the 90th percentile, mostly rate-limit waiting on the free tier. In my first nine runs on `gemini-3-flash-preview` it took 4 to 10 s per question.
-- Embedding the corpus (636 chunks) fits in one day of the free tier; the add-document demo needed another 222 embeddings.
-
-## AI use
-
-I used Claude (Claude Code) to write the code (`index.py`, `server.py`, `agent.py`, `evaluate.py`), to draft `AGENTS.md`, the subagent file, the 35 test questions with reference answers, and this report's factual parts. The use case, the choice of corpus, the design decision, the test questions, the rubric, my own grades and the analysis and decision are mine. **TODO (you):** confirm that this is accurate and change it to what is true for your own work; the assignment requires the disclosure and requires the decisions and analysis to be yours.
+ 
+[YOU WRITE. Facts to weigh: very accurate on this test set, but the set is small and fairly easy and most questions ask for one article by topic. Only three EU texts, no recitals, no national law such as Spain's, no case law, and the AI Act keeps getting new guidance (the q34 demo shows how one added document changed an answer). A reasonable position is to use it as a research aid that points to the right articles, with a person checking every citation and a lawyer for real decisions.]
+ 
+**Cost and latency per question:** about 5,900 input tokens and 650 output tokens, with 1 to 3 searches. Average time was 111 seconds (90th percentile 178 seconds), mostly free-tier rate-limit waiting. On Gemini Flash it took 4 to 10 seconds.
+ 
+## AI-use disclosure
+ 
+[YOU WRITE. State honestly which parts you did yourself and which tools helped (for example Claude, Copilot) and for what.]
+ 
