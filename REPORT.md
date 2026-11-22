@@ -106,7 +106,7 @@ Transcript from my editor:
   This is a reading of the text, not legal advice.
 ```
  
-Reflection: [YOU WRITE. Points from your notes: it searched once, cited Article 50(1)-(3), 50(4)-(7) and 26(11)-(12), all really retrieved. It noticed the disclosure duty falls on the provider, not the hotel as deployer. Weakness is that it did not check the GDPR side.]
+Reflection: It searched once, cited Article 50(1)-(3), 50(4)-(7) and 26(11)-(12), all really retrieved. It noticed the disclosure duty falls on the provider, not the hotel as deployer. The weakness is that it did not check the GDPR side.
  
 ## Adding a document
  
@@ -132,7 +132,7 @@ If the identical file is already indexed, nothing changes and the tool replies "
  
 **Extra guardrail: citation check.** The code records every passage a search returned. Every `[source, Article N]` in the answer must match one of them. If not, the model gets one retry. If it still cites something it never received, the citation is replaced by "[citation removed: not in the search results]" and a warning is added. Reason: an invented legal citation is worse than none. It checks that the cited passage was retrieved, not that it supports the claim (the judge's "supported" grade covers that).
  
-**Case where it fired:** in the real run of 35 questions it never fired (0 retries, 0 removals), because the agent only cited passages it received. [OPTION: add a deliberate test that calls `check_citations` and `strip_citations` on an answer citing an article that was never retrieved, and paste the output here, clearly labelled as a deliberate test and not a real case.]
+**Case where it fired:** in the real run of 35 questions it never fired (0 retries, 0 removals), because the agent only cited passages it received. I could've added a deliberate test that calls `check_citations` and `strip_citations` on an answer citing an article that was never retrieved to test this. 
  
 ## Evaluation
  
@@ -161,21 +161,32 @@ One question failed, q34. The agent did not refuse cleanly. It said the text doe
 |---|---|
 | Retrieval miss | 0 |
 | Wrong answer from the right passage | 0 |
-| Unsupported claim | [0 or 1, see below] |
+| Unsupported claim | 1 |
 | Wrong refusal | 0 |
-| Bad test question | [0 or 1, see below] |
+| Bad test question | 0 |
  
-I'd say q34 is an unsupported claim because it implied an answer to an unanswerable question. However, the other reading is bad test question, because the AI Act does touch the topic (Article 5(1)(f) and Annex III) and my own reference answer admits the text is ambiguous.
+I'd say q34 is an unsupported claim because it implied an answer to an unanswerable question. However, the other possibility would be a bad test question, because the AI Act does touch the topic (Article 5(1)(f) and Annex III) and my own reference answer admits the text is ambiguous.
  
-What to fix first: [YOU WRITE. Options from your notes: add harder unanswerable questions that sound answerable and review q34's wording, then add questions with exceptions or conflicting articles.]
+What to fix first: I'd add harder unanswerable questions that sound answerable and review q34's wording, then add questions with exceptions or conflicting articles. I'd like for the agent to be better trained so I can implement improvements, like making it search both the AI Act and the GDPR when a question involves guest data, and then measure whether they work.
  
 ## Decision
  
-[YOU WRITE. Facts to weigh: very accurate on this test set, but the set is small and fairly easy and most questions ask for one article by topic. Only three EU texts, no recitals, no national law such as Spain's, no case law, and the AI Act keeps getting new guidance (the q34 demo shows how one added document changed an answer). A reasonable position is to use it as a research aid that points to the right articles, with a person checking every citation and a lawyer for real decisions.]
+For now, I wouldn't let hotel management rely on the test because although it's very accurate on this test set, the set is small and fairly easy and most questions ask for one article by topic. We only consider three EU texts, no national law such as Spain's or other types of documents that would affect decision making and that a lawyer would take into account. I'd say it's reasonable to use it as a research aid that points to the right articles, using a lawyer for real decisions.
  
 **Cost and latency per question:** about 5,900 input tokens and 650 output tokens, with 1 to 3 searches. Average time was 111 seconds (90th percentile 178 seconds), mostly free-tier rate-limit waiting. On Gemini Flash it took 4 to 10 seconds.
  
 ## AI-use disclosure
  
-[YOU WRITE. State honestly which parts you did yourself and which tools helped (for example Claude, Copilot) and for what.]
- 
+I used Claude (Claude Code and chat) throughout this assignment.
+
+**Code.** Claude wrote the code: `index.py` (extraction, cleaning, the two chunking designs, embedding, hybrid search), `server.py` (the two MCP tools), `agent.py` (the LangChain harness and its three guardrails) and `evaluate.py` (retrieval metrics, code checks, the LLM judge, agreement with my grades and the add-document demo). Claude also drafted `AGENTS.md` and the subagent file `.claude/agents/corpus-researcher.md`.
+
+**Test set.** Claude drafted the 35 questions and their reference answers from the documents. I read all 35 and kept them as they were.
+
+**Running and setup.** Claude helped me apply the work to my GitHub fork, run the check workflow, run the subagent for the transcript in this report, and compute the agreement between my grades and the judge.
+
+**Report.** I wrote this report. Claude gave me a first draft of the factual parts (the numbers and the descriptions of the code), which I rewrote in my own words, and fixed formatting. The use case, the reflections, the failure classification, what to fix first and the decision are written by me.
+
+**What is mine.** The use case is my own idea: I chose hotels because my thesis is about automating hotel touchpoints, so the question of which guest-facing AI tools are allowed under EU law matters directly for my work. I suggested building the corpus around the AI Act and the GDPR; Claude chose the specific documents and versions (including the Commission guidelines on the AI system definition and, for the add-document demo, the guidelines on prohibited practices). I graded 26 answers myself in `eval/human_labels.csv` before looking at the judge's verdicts. The classification of the q34 failure, what to fix first, and the decision are my own.
+
+**Learning.** I used Claude, including Claude voice mode, to understand the concepts of the class, such as RAG, embeddings, chunking, LangChain and MCP. Claude also explained the code to me: what each file does (`index.py`, `server.py`, `agent.py`, `evaluate.py`, `main.py`, `AGENTS.md` and the subagent file) and how the files work together, so I could explain my own choices in the written comprehension check. 
