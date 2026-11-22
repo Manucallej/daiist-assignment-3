@@ -66,13 +66,49 @@ One search result (query "transparency obligation AI system interaction natural 
  
 **Subagent.** `.claude/agents/corpus-researcher.md` has access only to the `search` tool, so it cannot change the index. Its instructions: search first with short legal queries and search again if needed, answer only from the passages received, cite every claim with the exact bracket, keep conditions and exceptions, say the documents do not cover it when they do not, be short, and end with "This is a reading of the text, not legal advice."
  
-Transcript from my editor: [PASTE YOUR q01 TRANSCRIPT HERE]
+Transcript from my editor: 
+> Do we have to tell guests that they are talking to an AI chatbot?
+
+● corpus-researcher
+  ⎿ mcp__corpus__search(query: "transparency obligation AI system interacts directly with natural persons informed")
+    5 passages for: transparency obligation AI system interacts directly with natural persons informed
+    [1] cite as [ai_act, Article 50(1)-(3)]  | Article 50(1)-(3) - Transparency obligations for providers and deployers ... | PDF page 82
+    [2] cite as [ai_act, Article 50(4)-(7)]  | Article 50(4)-(7) - Transparency obligations for providers and deployers ... | PDF page 82
+    [3] cite as [ai_act, Annex XII(1)-(2)]   | Annex XII(1)-(2) - Transparency information referred to in Article 53(1), point (b) ...
+    [4] cite as [ai_act, Article 26(11)-(12)] | Article 26(11)-(12) - Obligations of deployers of high-risk AI systems | PDF page 69
+    [5] cite as [ai_act, Article 5(1)]       | Article 5(1) - Prohibited AI practices | PDF page 51
+
+  Answer:
+  Under the AI Act, yes, in most cases, but the text puts this duty on the provider (whoever builds
+  the chatbot), not directly on the hotel as deployer.
+
+  - The rule: Providers must make sure that AI systems meant to interact directly with people are
+    designed so that those people are told they are dealing with an AI system [ai_act, Article 50(1)-(3)].
+  - Exception: The duty does not apply if it is "obvious from the point of view of a natural person who
+    is reasonably well-informed, observant and circumspect, taking into account the circumstances and
+    the context of use" [ai_act, Article 50(1)-(3)]. It also does not apply to systems authorised by law
+    for criminal-law enforcement purposes [ai_act, Article 50(1)-(3)].
+  - When and how: Guests must get the information "in a clear and distinguishable manner at the latest
+    at the time of the first interaction". It must also meet the applicable accessibility requirements
+    [ai_act, Article 50(4)-(7)].
+  - Duties that do fall on the deployer:
+    - If the chatbot also does emotion recognition or biometric categorisation, the hotel itself must
+      tell guests that the system is running [ai_act, Article 50(1)-(3)].
+    - If the system counts as a high-risk system under Annex III and makes or helps make decisions about
+      people, the hotel must tell them it is being used [ai_act, Article 26(11)-(12)].
+    - Article 50 does not replace other transparency duties for deployers under EU or national law
+      [ai_act, Article 50(4)-(7)]. National laws are not in the indexed documents.
+
+  This search only covered the AI Act. I did not search the GDPR's rules on informing guests about how
+  their personal data is processed.
+
+  This is a reading of the text, not legal advice.
  
 Reflection: [YOU WRITE. Points from your notes: it searched once, cited Article 50(1)-(3), 50(4)-(7) and 26(11)-(12), all really retrieved. It noticed the disclosure duty falls on the provider, not the hotel as deployer. Weakness is that it did not check the GDPR side.]
  
 ## Adding a document
  
-If the identical file (same SHA-256 fingerprint) is already indexed, nothing changes and the tool replies "Already indexed ... Nothing was changed." If a file has the same name but different content, the old chunks are replaced by the new ones. I tested the first case by adding the same file twice.
+If the identical file is already indexed, nothing changes and the tool replies "Already indexed ... Nothing was changed." If a file has the same name but different content, the old chunks are replaced by the new ones. I tested the first case by adding the same file twice.
  
 **Unanswerable question (q34):** "Does the ban on emotion recognition at work also cover job candidates during hiring?" The AI Act only says "workplace and education institutions".
  
@@ -126,7 +162,7 @@ One question failed, q34. The agent did not refuse cleanly. It said the text doe
 | Wrong refusal | 0 |
 | Bad test question | [0 or 1, see below] |
  
-[YOU DECIDE. The evaluation script labelled q34 "unsupported claim (answered an unanswerable question)". The other reading is bad test question, because the AI Act does touch the topic (Article 5(1)(f) and Annex III) and my own reference answer admits the text is ambiguous. Pick one, count it once, and justify it in one or two sentences.]
+I'd say q34 is an unsupported claim because it implied an answer to an unanswerable question. However, the other reading is bad test question, because the AI Act does touch the topic (Article 5(1)(f) and Annex III) and my own reference answer admits the text is ambiguous.
  
 What to fix first: [YOU WRITE. Options from your notes: add harder unanswerable questions that sound answerable and review q34's wording, then add questions with exceptions or conflicting articles.]
  
