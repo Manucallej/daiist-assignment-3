@@ -8,8 +8,7 @@
  
 The users are hotel managers and compliance officers who need to decide whether a guest-facing AI tool is allowed under EU law. Examples are a booking chatbot, personalised offers, emotion analysis of reviews and CV screening. They use the answer to decide what AI to build, buy or disclose to guests. The question can start with the manager, but the decision has to hold up later in front of an auditor, a regulator, a shareholder or an unhappy guest, and it may reach the CEO or the chief data officer.
  
-A wrong answer is expensive. Deploying a prohibited practice can mean fines of up to 35 million euros or 7% of worldwide turnover, and skipping a duty such as chatbot disclosure up to 15 million euros or 3% (AI Act, Article 99). An "I don't know" when the system is unsure, the cost is time and a call to a lawyer to clear doubts. Because of this gap, the system is built to answer only from the text, cite where, and refuse when it's unsure of the answer.
- 
+A wrong answer is expensive. Deploying a prohibited practice can mean fines of up to 35 million euros or 7% of worldwide turnover, and skipping a duty such as chatbot disclosure up to 15 million euros or 3% (AI Act, Article 99). When the system is unsure and says "I don't know", the cost is only time and a call to a lawyer to clear doubts. Because of this gap, the system is built to answer only from the text, cite where, and refuse when it's unsure of the answer. 
 ## Corpus
  
 | Document | URL | Date | Licence | Words |
@@ -25,9 +24,9 @@ All three are public EU documents with no personal data. I left out the recitals
  
 I extract the text from each PDF page by page and keep the page number as a label. Then I clean it by removing Official Journal headers and footers, printed page numbers, tables of contents, footnotes, soft hyphens and the recitals. The page number stays in the metadata even though it is removed from the text.
  
-One extraction problem was that page headers landed in the middle of articles and broke the "Article N" lines that the structure detection depends on. To solve this, I created a file with the pattern that was seen in the corpus when this happened, and then those patterns that matched were deleted in the cleaning.  
- 
-There are two chunking designs. Design A cuts fixed windows of 350 words with 50 words of overlap. Design B cuts by structure, one chunk per article or section, and only splits at paragraph breaks if the unit is longer than 450 words. Each chunk carries this metadata: source document, article, annex or section, page, chapter and word count, and that metadata becomes the citation. Design A has 291 chunks (AI Act 174, GDPR 99, guidelines 18) and Design B has 345 chunks (AI Act 196, GDPR 131, guidelines 18). In total 636 chunks were embedded with Gemini. We mainly used Design B, because logically if we discuss legal information where citations and exact language is important, it's important for information not to be cut off and for the RAG to be able to find the FULL citation depending on the text's natural structure. 
+One extraction problem was that page headers landed in the middle of articles and broke the "Article N" lines that the structure detection depends on. To solve this, I wrote a list of patterns in `index.py` matching the repeated header and footer lines seen in the corpus (for example "OJ L, 12.7.2024 EN" and the "ELI: http://..." links). During cleaning, every line that matches one of these patterns is deleted before the text is split into articles. 
+
+There are two chunking designs. Design A cuts fixed windows of 350 words with 50 words of overlap. Design B cuts by structure, one chunk per article or section, and only splits at paragraph breaks if the unit is longer than 450 words. Each chunk carries this metadata: source document, article, annex or section, page, chapter and word count, and that metadata becomes the citation. Design A has 291 chunks (AI Act 174, GDPR 99, guidelines 18) and Design B has 345 chunks (AI Act 196, GDPR 131, guidelines 18). In total 636 chunks were embedded with Gemini. The assistant uses only Design B. It was chosen by the retrieval numbers below (hit@5 of 0.96 against 0.86), because with legal texts, where citations and exact language matter, a passage should not be cut off, and the RAG should find the full article following the text's natural structure. 
  
 ## Test set
  
@@ -66,7 +65,9 @@ One search result (query "transparency obligation AI system interaction natural 
  
 **Subagent.** `.claude/agents/corpus-researcher.md` has access only to the `search` tool, so it cannot change the index. Its instructions: search first with short legal queries and search again if needed, answer only from the passages received, cite every claim with the exact bracket, keep conditions and exceptions, say the documents do not cover it when they do not, be short, and end with "This is a reading of the text, not legal advice."
  
-Transcript from my editor: 
+Transcript from my editor:
+
+```
 > Do we have to tell guests that they are talking to an AI chatbot?
 
 ● corpus-researcher
@@ -103,6 +104,7 @@ Transcript from my editor:
   their personal data is processed.
 
   This is a reading of the text, not legal advice.
+```
  
 Reflection: [YOU WRITE. Points from your notes: it searched once, cited Article 50(1)-(3), 50(4)-(7) and 26(11)-(12), all really retrieved. It noticed the disclosure duty falls on the provider, not the hotel as deployer. Weakness is that it did not check the GDPR side.]
  
@@ -141,6 +143,7 @@ The agent (`gemma-4-31b-it`) answered all 35 questions. A different model (`gemm
 **Judge rubric** (two grades, 0 or 1):
 * correct. For answerable questions, the answer states the key facts of the reference answer and contradicts none, and a refusal is 0. For unanswerable questions, 1 only if it says the indexed documents do not cover the question.
 * supported. 1 if every factual claim is in the retrieved passages, even a true claim counts as 0 if the passages do not contain it. Closing lines like "not legal advice" do not count.
+
 **Agreement with the judge.** I graded 26 answers myself before seeing the judge's verdicts. We agreed on 26 of 26 (100%) for both correct and supported. This is weaker evidence than it sounds. For "correct" the kappa of 1.0 rests on a single shared failure (q34). For "supported" we both gave 1 to all 26, so there is no variation and kappa is undefined (the script prints 1.0 as a default). High agreement on an easy set does not prove the judge would catch failures.
  
 **Results (35 questions):**
