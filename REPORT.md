@@ -132,7 +132,23 @@ If the identical file is already indexed, nothing changes and the tool replies "
  
 **Extra guardrail: citation check.** The code records every passage a search returned. Every `[source, Article N]` in the answer must match one of them. If not, the model gets one retry. If it still cites something it never received, the citation is replaced by "[citation removed: not in the search results]" and a warning is added. Reason: an invented legal citation is worse than none. It checks that the cited passage was retrieved, not that it supports the claim (the judge's "supported" grade covers that).
  
-**Case where it fired:** in the real run of 35 questions it never fired (0 retries, 0 removals), because the agent only cited passages it received. I could've added a deliberate test that calls `check_citations` and `strip_citations` on an answer citing an article that was never retrieved to test this. 
+**Case where it fired:** in the real run of 35 questions it never fired (0 retries, 0 removals), because the agent only cited passages it received. To show that it works, I ran a deliberate test (not a real case): I gave the guardrail functions an answer that cites one retrieved passage and one that was never retrieved (GDPR Article 83, as if the model cited it from memory).
+
+```
+Retrieved passages: ['ai_act, Annex XII', 'ai_act, Article 26', 'ai_act, Article 5', 'ai_act, Article 50']
+
+Answer given to the guardrail:
+Yes, guests must be told they are talking to an AI system [ai_act, Article 50(1)-(3)]. Breaking this rule can lead to fines of up to 20 million euros [gdpr, Article 83].
+
+check_citations found: ['[gdpr, Article 83]']
+
+After strip_citations:
+Yes, guests must be told they are talking to an AI system [ai_act, Article 50(1)-(3)]. Breaking this rule can lead to fines of up to 20 million euros [citation removed: not in the search results].
+
+(Warning: some citations could not be verified and were removed.)
+```
+
+The valid citation stays and the invented one is caught and removed. In the real agent, the model would first get one retry to fix the answer before the citation is removed; this test skips the retry because it calls the functions directly. One limitation shows here: the guardrail removes the citation but not the claim itself, so "fines of up to 20 million euros" stays in the text, now visibly marked as unverified.
  
 ## Evaluation
  
@@ -183,7 +199,7 @@ I used Claude (Claude Code and chat) throughout this assignment.
 
 **Test set.** Claude drafted the 35 questions and their reference answers from the documents. I read all 35 and kept them as they were.
 
-**Running and setup.** Claude helped me apply the work to my GitHub fork, run the check workflow, run the subagent for the transcript in this report, and compute the agreement between my grades and the judge.
+**Running and setup.** Claude helped me apply the work to my GitHub fork, run the check workflow, run the subagent for the transcript in this report, and compute the agreement between my grades and the judge. It also helped me implement the deliberate guardrail test since it was never needed. 
 
 **Report.** I wrote this report. Claude gave me a first draft of the factual parts (the numbers and the descriptions of the code), which I rewrote in my own words, and fixed formatting. The use case, the reflections, the failure classification, what to fix first and the decision are written by me.
 
