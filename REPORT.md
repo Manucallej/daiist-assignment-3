@@ -183,11 +183,11 @@ One question failed, q34. The agent did not refuse cleanly. It said the text doe
  
 I'd say q34 is an unsupported claim because it implied an answer to an unanswerable question. However, the other possibility would be a bad test question, because the AI Act does touch the topic (Article 5(1)(f) and Annex III) and my own reference answer admits the text is ambiguous.
  
-What to fix first: I'd add harder unanswerable questions that sound answerable and review q34's wording, then add questions with exceptions or conflicting articles. I'd like for the agent to be better trained so I can implement improvements, like making it search both the AI Act and the GDPR when a question involves guest data, and then measure whether they work.
+What to fix first: I'd add harder unanswerable questions that sound answerable and review q34's wording, then add questions with exceptions or conflicting articles. I'd like for the agent to be better tested so I can implement improvements, like making it search both the AI Act and the GDPR when a question involves guest data, and then measure whether they work.
  
 ## Decision
  
-For now, I wouldn't let hotel management rely on the test because although it's very accurate on this test set, the set is small and fairly easy and most questions ask for one article by topic. We only consider three EU texts, no national law such as Spain's or other types of documents that would affect decision making and that a lawyer would take into account. I'd say it's reasonable to use it as a research aid that points to the right articles, using a lawyer for real decisions.
+For now, I wouldn't let hotel management rely on the assistant because although it's very accurate on this test set, the set is small and fairly easy and most questions ask for one article by topic. We only consider three EU texts, no national law such as Spain's or other types of documents that would affect decision making and that a lawyer would take into account. I'd say it's reasonable to use it as a research aid that points to the right articles, using a lawyer for real decisions.
  
 **Cost and latency per question:** about 5,900 input tokens and 650 output tokens, with 1 to 3 searches. Average time was 111 seconds (90th percentile 178 seconds), mostly free-tier rate-limit waiting. On Gemini Flash it took 4 to 10 seconds.
  
@@ -199,7 +199,7 @@ I used Claude (Claude Code and chat) throughout this assignment.
 
 **Test set.** Claude drafted the 35 questions and their reference answers from the documents. I read all 35 and kept them as they were.
 
-**Running and setup.** Claude helped me apply the work to my GitHub fork, run the check workflow, run the subagent for the transcript in this report, and compute the agreement between my grades and the judge. It also helped me implement the deliberate guardrail test since it was never needed. 
+**Running and setup.** Claude helped me apply the work to my GitHub fork, run the check workflow, run the subagent for the transcript in this report, and compute the agreement between my grades and the judge. It also helped me implement the deliberate guardrail test since it never needed to fire in the real run. 
 
 **Report.** I wrote this report. Claude gave me a first draft of the factual parts (the numbers and the descriptions of the code), which I rewrote in my own words, and fixed formatting. The use case, the reflections, the failure classification, what to fix first and the decision are written by me.
 
